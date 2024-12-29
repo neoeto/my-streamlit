@@ -1,4 +1,5 @@
-from zhipuai import ZhipuAI
+# from zhipuai import ZhipuAI
+from openai import OpenAI
 import streamlit as st
 
 
@@ -11,15 +12,19 @@ system_prompt = '''
 
 ZHIPU_KEY = "ZHIPU_LEY"
 MESSAGE_KEY = "MESSAGE"
+MODEL = "deepseek-chat"
 
 if MESSAGE_KEY not in st.session_state:
     st.session_state[MESSAGE_KEY] = []
 
 def chat_jielong(chengyu):
-    client = ZhipuAI(api_key=st.session_state[ZHIPU_KEY])
-    model = "glm-4-plus"
+    # client = ZhipuAI(api_key=st.session_state[ZHIPU_KEY])
+    client = OpenAI(
+        api_key=st.session_state[ZHIPU_KEY],
+        base_url="https://api.deepseek.com/v1"
+    )
     completion = client.chat.completions.create(
-        model=model,
+        model=MODEL,
         messages=[
             {"role":"system", "content": system_prompt},
             {"role":"user", "content":chengyu}
@@ -32,14 +37,18 @@ def chat_jielong(chengyu):
 def show_chat():
     input = st.chat_input("请输入成语")
     if input:
-        st.session_state[MESSAGE_KEY].append(['human', input])
-        resp = chat_jielong(input)
-        st.session_state[MESSAGE_KEY].append(['assistant', resp])
         for chat_msg in st.session_state[MESSAGE_KEY]:
             st.chat_message(chat_msg[0]).markdown(chat_msg[1])
 
+        st.chat_message('human').markdown(input)
+        st.session_state[MESSAGE_KEY].append(['human', input])
+        resp = chat_jielong(input)
+        st.chat_message('assistant').markdown(resp)
+        st.session_state[MESSAGE_KEY].append(['assistant', resp])
+
 
 if ZHIPU_KEY not in st.session_state:
+    st.session_state[ZHIPU_KEY] = ''
     with st.container():
         zhipu_key = st.text_input("请输入智谱api key")
         saved = st.button("确定")
