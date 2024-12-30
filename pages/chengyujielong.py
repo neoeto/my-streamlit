@@ -12,7 +12,9 @@ system_prompt = '''
 
 ZHIPU_KEY = "ZHIPU_LEY"
 MESSAGE_KEY = "MESSAGE"
+RESULT_KEY = "RESULT"
 MODEL = "deepseek-chat"
+# MODEL = "glm-4-plus"
 
 if MESSAGE_KEY not in st.session_state:
     st.session_state[MESSAGE_KEY] = []
@@ -21,7 +23,7 @@ def chat_jielong(chengyu):
     # client = ZhipuAI(api_key=st.session_state[ZHIPU_KEY])
     client = OpenAI(
         api_key=st.session_state[ZHIPU_KEY],
-        base_url="https://api.deepseek.com/v1"
+        base_url="https://api.deepseek.com"
     )
     completion = client.chat.completions.create(
         model=MODEL,
@@ -29,30 +31,56 @@ def chat_jielong(chengyu):
             {"role":"system", "content": system_prompt},
             {"role":"user", "content":chengyu}
         ],
+        stream=False,
         temperature=0
     )
 
     return completion.choices[0].message.content
 
+def is_legal_chengyu(first, yours):
+    if len(first) <= 0:
+        return True
+    if len(yours) <= 0:
+        return False
+    return first[-1] == yours[0]
+
+if RESULT_KEY not in st.session_state:
+    st.session_state[RESULT_KEY] = True
+
 def show_chat():
+    if not st.session_state[RESULT_KEY]:
+        return
     input = st.chat_input("请输入成语")
     if input:
         for chat_msg in st.session_state[MESSAGE_KEY]:
             st.chat_message(chat_msg[0]).markdown(chat_msg[1])
 
         st.chat_message('human').markdown(input)
+        if len(st.session_state[MESSAGE_KEY]) > 0 and \
+              not is_legal_chengyu(st.session_state[MESSAGE_KEY][-1][1], input):
+            st.chat_message('assistant').write('你的回答错咯')
+            return
+        
         st.session_state[MESSAGE_KEY].append(['human', input])
         resp = chat_jielong(input)
+        if not is_legal_chengyu(input, resp):
+            resp = "我回答不出来，认输了!"
+
         st.chat_message('assistant').markdown(resp)
         st.session_state[MESSAGE_KEY].append(['assistant', resp])
 
 
 if ZHIPU_KEY not in st.session_state:
-    st.session_state[ZHIPU_KEY] = ''
-    with st.container():
-        zhipu_key = st.text_input("请输入智谱api key")
-        saved = st.button("确定")
-        if saved and len(zhipu_key) > 0:
-            st.session_state[ZHIPU_KEY] = zhipu_key
+    st.session_state[ZHIPU_KEY] = None
+
+def api_key_submit(key):
+    if len(key) > 0:
+        st.session_state[ZHIPU_KEY] = key
+
+if st.session_state[ZHIPU_KEY] is None:
+    key = st.text_input('api key')
+    def sub():
+        api_key_submit(key)
+    st.button('提交', on_click=sub)
 else:
     show_chat()
